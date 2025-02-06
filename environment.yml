@@ -1,4 +1,4 @@
-name: ae_node_python39
+name: artu
 channels:
   - defaults
 dependencies:
