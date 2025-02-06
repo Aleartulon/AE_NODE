@@ -1,0 +1,13 @@
+kernel_enc: [5, 5, 3, 3, 3, 3, 3] #kernels sizes of the Encoder
+filters_enc: [8, 16, 32, 32, 32, 32, 32] #number of filters of the Encoder
+stride_enc: [1, 2, 2, 2, 2, 2, 2] #strides of the Encoder
+latent_dim: 30 #dimension of the latent space
+n_layers_f: 4 #number of hidden Dense layers which build up the function f
+parameter_information: "concatenation" #how the parameter information is passed to f. either 'concatenation' or 'FiLM'
+n_FiLM_conditioning : 1 #number of FiLM layers (if FiLM is chosen instead of concatenation). FiLM = 1 only applies to the latent vector
+kernel_deco: [4, 4, 4, 4, 4, 4, 3, 3] #kernels sizes of the Decoder
+n_neurons_f: 200 #number of neurons of each layer of f
+filters_deco: [32, 32, 32, 32, 32, 16, 1] #number of filters of the Decoder
+stride_dec: [2, 2, 2, 2, 2, 2, 1, 1] #strides of the Decoder
+final_and_initial_activation: false #if true, after the final linear layer of the encoder and the initial linear layer of the decoder an activation function is used
+
