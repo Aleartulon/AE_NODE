@@ -109,7 +109,7 @@ def valid_epoch(conv_encoder, f, conv_decoder, ma_mi, device, validation_data,lo
 
 def nn_training(conv_encoder ,f, conv_decoder, training_data, validation_data, ma_mi, device, optim, 
      epochs, PATH, loss_coeff, AR_strength, time_only_TF, pre_scheduler, scheduler, RK, k, start_backprop, checkpoint, 
-     time_of_AE, dim_input, lambda_regularization, time_dependence_in_f, TBPP_dynamic, clipping):
+     time_of_AE, dim_input, lambda_regularization, time_dependence_in_f, TBPP_dynamic, clipping, is_coupled):
     """This functions starts the training and cycle for a given number of epochs on the training and valiation datasets.
     It gathers the traiing and validation metrics, prints them and saves them and saves the NNs weights if the validation function has hit a new minimum.
     It is possible to restart the training from a previous checkpoint by setting checkpoint = true
@@ -139,6 +139,7 @@ def nn_training(conv_encoder ,f, conv_decoder, training_data, validation_data, m
         time_dependence_in_f (bool): if true, the function f depends on time as well.
         TBPP_dynamic (list): if first dimension is true, when computing L_2_A, the depth in time in the past to which the backprop algorithm is applied increase dinamically during the training
         clipping (list): first dimension is a boolean. if true, clipping is applied to the gradients of the function f with max norm given by second dimension
+        is_coupled (list): #if true the AutoEncoder (AE) is trained coupled with the NODE. if false, if second dimension is 'AE' the AE is trained, if second dimension is 'NODE' the NODE is trained.
     """    
 
     if not checkpoint:
@@ -148,6 +149,10 @@ def nn_training(conv_encoder ,f, conv_decoder, training_data, validation_data, m
 
         loss_coeff_2 = -10
         #start the training
+
+        #check for coupled_system
+        if not is_coupled[0] and is_coupled[1] == 'NODE':
+            time_of_AE = 0
 
         print("------------------TRAINING STARTS------------------")
         loss_value = 100
@@ -239,6 +244,12 @@ def nn_training(conv_encoder ,f, conv_decoder, training_data, validation_data, m
             print('The validation loss has not decreased for ' + str(early_stopping) + ' epochs!')
             
             print('------------------------------------------------------')
+
+            #check if training a noncoupled system and adjust accordingly the validatin losses to be checked for early stopping
+            if not is_coupled[0] and is_coupled[1] == 'AE' and i >=time_of_AE:
+                valid_loss_data = valid_l1_data
+            elif not is_coupled[0] and is_coupled[1] == 'NODE':
+                valid_loss_data = valid_l2_TF_data + valid_l2_AR_data
 
             if valid_loss_data < loss_value: #careful valid loss tot!!
                 loss_value = valid_loss_data

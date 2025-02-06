@@ -24,3 +24,5 @@ normalization_field_ma : [True, 1.0] # if true, maxima of each dimension of the 
 normalization_field_mi : [True, 0.0] # if true, minima of each dimension of the solution fields are found. If not, dimension 1,2, etc are the minima of dimension 1,2, etc of the solution field (only one if it is a scalar field)
 normalization_parameters_ma : [True, 0.0] #if True, maxima of each dimension of the vector of parameters are found. If not, dimension 1,2, etc are the maxima of dimension 1,2, etc of the parameter vector
 normalization_parameters_mi : [True, 0.0] #if True, minima of each dimension of the vector of parameters are found. If not, dimension 1,2, etc are the minima of dimension 1,2, etc of the parameter vector
+is_coupled : [false, 'AE'] #if true the AutoEncoder (AE) is trained coupled with the NODE. if false, if 'AE' the AE is trained, if 'NODE' the NODE is trained.
+loss_coeff_not_coupled : [1, 0, 0, 0] #if is_coupled[0] == false, adjust accordingly the loss coefficients
