@@ -9,14 +9,12 @@ This repository contains the implementation of a Deep Learning methodology for s
 At testing time, the initial condition $s_r^0$ is mapped through the Encoder into its reduced representation $\varepsilon_{\pmb{\mu}}^0$. Subsequently, the full sequence of reduced vectors $\varepsilon^{\pmb{\mu},i}_i$ is recovered autoregressively by repeated application of the Processor. For each $\varepsilon^{\pmb{\mu},i}_i$, the corresponding PDE solution is recovered by application of the Decoder.
 
 For a more detailed explanation of the methodology, please refed to this [paper](https://www.example.com).
-##  Features
-
 
 ##  Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/Aleartulon/AENODE.git
+git clone git@github.com:Aleartulon/AE_NODE.git
 
 # Navigate into the project directory
 cd AENODE
@@ -56,11 +54,6 @@ To do so, **one needs to specify** in 'data_path' in [configs/initial_informatio
     └── training_validation_functions.py
 ```
 
-
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
-## Acknowledgments
+## Contacts
+For any information, you can contact Alessandro Longhi at a.longhi@tudelft.nl .
 
