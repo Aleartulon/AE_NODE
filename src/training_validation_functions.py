@@ -254,9 +254,6 @@ def nn_training(conv_encoder ,f, conv_decoder, training_data, validation_data, m
             if valid_loss_data < loss_value: #careful valid loss tot!!
                 loss_value = valid_loss_data
                 print('Models saved!')
-                tc.save(conv_encoder, PATH+str("/conv_encoder_weights.pth"))
-                tc.save(f, PATH+str("/f_weights.pth"))
-                tc.save(conv_decoder, PATH+str("/conv_decoder_weights.pth"))
                 save_checkpoint(conv_encoder, f , conv_decoder, optim, scheduler, i, loss_value, loss_coeff_2 , start_backprop, full_training_count,PATH+'/checkpoint/check.pt')
                 early_stopping = 0
     
@@ -355,9 +352,6 @@ def nn_training(conv_encoder ,f, conv_decoder, training_data, validation_data, m
             if valid_loss_data < loss_value: #careful valid loss tot!!
                 loss_value = valid_loss_data
                 print('Models saved!')
-                tc.save(conv_encoder, PATH+str("/conv_encoder_weights.pth"))
-                tc.save(f, PATH+str("/f_weights.pth"))
-                tc.save(conv_decoder, PATH+str("/conv_decoder_weights.pth"))
                 save_checkpoint(conv_encoder, f , conv_decoder, optim, scheduler , i, loss_value, loss_coeff_2, start_backprop,full_training_count,PATH+'/checkpoint/check.pt')
                 early_stopping = 0
 
