@@ -1,12 +1,11 @@
 name: artu
 channels:
-  - conda-forge
   - defaults
+  - conda-forge
 dependencies:
   - python=3.9
   - numpy
   - pytorch
-  - yaml
   - pyyaml
   - jupyter
   - matplotlib
