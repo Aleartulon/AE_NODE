@@ -23,7 +23,7 @@ cd AENODE
 conda env create -f environment.yml
 conda activate artu
 
-# Run the application
+# Run the main
 python bin/main.py
 ```
 
