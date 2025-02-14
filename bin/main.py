@@ -53,10 +53,12 @@ def main():
     print(f'Selected device: {device}')
 
     #define the ENCODER, the function f of the latent dynamics and the Decoder 
+    conv_encoder = Convolutional_Encoder(initial_information['dim_input'], model_information['kernel_enc'], model_information['filters_enc'], model_information['stride_enc'], model_information['input_output_dfnn'], model_information['latent_dim'], model_information['final_and_initial_activation'])
+    conv_decoder = Convolutional_Decoder(initial_information['dim_input'], model_information['kernel_deco'], model_information['filters_deco'], model_information['stride_dec'], model_information['latent_dim'], model_information['input_output_dfnn'], final_reduction, model_information['final_and_initial_activation'])
+    f = F_Latent(model_information['parameter_information'], initial_information['dim_parameter'], model_information['latent_dim'], model_information['n_neurons_f'], model_information['n_layers_f'], model_information['n_FiLM_conditioning'])
+    
+    #depending on whether the system is coupled, define f and load conv_encoder and conv_decoder
     if not initial_information['is_coupled'][0] and initial_information['is_coupled'][1] == 'NODE':
-        conv_encoder = Convolutional_Encoder(initial_information['dim_input'], model_information['kernel_enc'], model_information['filters_enc'], model_information['stride_enc'], model_information['input_output_dfnn'], model_information['latent_dim'], model_information['final_and_initial_activation'])
-        f = F_Latent(model_information['parameter_information'], initial_information['dim_parameter'], model_information['latent_dim'], model_information['n_neurons_f'], model_information['n_layers_f'], model_information['n_FiLM_conditioning'])
-        conv_decoder = Convolutional_Decoder(initial_information['dim_input'], model_information['kernel_deco'], model_information['filters_deco'], model_information['stride_dec'], model_information['latent_dim'], model_information['input_output_dfnn'], final_reduction, model_information['final_and_initial_activation'])
         checkpoint = tc.load(initial_information['path_trained_AE']+'/checkpoint/check.pt', map_location=device, weights_only=True)
 
         conv_encoder.load_state_dict(checkpoint['enco'])
@@ -72,26 +74,17 @@ def main():
     ]
         
     elif not initial_information['is_coupled'][0] and initial_information['is_coupled'][1] == 'AE':
-        conv_encoder = Convolutional_Encoder(initial_information['dim_input'], model_information['kernel_enc'], model_information['filters_enc'], model_information['stride_enc'], model_information['input_output_dfnn'], model_information['latent_dim'], model_information['final_and_initial_activation'])
-        f = F_Latent(model_information['parameter_information'], initial_information['dim_parameter'], model_information['latent_dim'], model_information['n_neurons_f'], model_information['n_layers_f'], model_information['n_FiLM_conditioning'])
-        conv_decoder = Convolutional_Decoder(initial_information['dim_input'], model_information['kernel_deco'], model_information['filters_deco'], model_information['stride_dec'], model_information['latent_dim'], model_information['input_output_dfnn'], final_reduction, model_information['final_and_initial_activation'])
-
         params_to_optimize = [
         {'params': conv_encoder.parameters(), 'weight_decay': 0},
         {'params': conv_decoder.parameters(), 'weight_decay': 0}
     ]
 
     elif initial_information['is_coupled'][0]:
-        conv_encoder = Convolutional_Encoder(initial_information['dim_input'], model_information['kernel_enc'], model_information['filters_enc'], model_information['stride_enc'], model_information['input_output_dfnn'], model_information['latent_dim'], model_information['final_and_initial_activation'])
-        f = F_Latent(model_information['parameter_information'], initial_information['dim_parameter'], model_information['latent_dim'], model_information['n_neurons_f'], model_information['n_layers_f'], model_information['n_FiLM_conditioning'])
-        conv_decoder = Convolutional_Decoder(initial_information['dim_input'], model_information['kernel_deco'], model_information['filters_deco'], model_information['stride_dec'], model_information['latent_dim'], model_information['input_output_dfnn'], final_reduction, model_information['final_and_initial_activation'])
-
         params_to_optimize = [
         {'params': conv_encoder.parameters(), 'weight_decay': 0},
         {'params': f.parameters(), 'weight_decay': 0},
         {'params': conv_decoder.parameters(), 'weight_decay': 0}
     ]
-
     #move the models to the device
     conv_encoder.to(device)
     f.to(device)
