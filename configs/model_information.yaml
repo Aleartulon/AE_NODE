@@ -7,6 +7,7 @@ parameter_information: "concatenation" #how the parameter information is passed 
 n_FiLM_conditioning : 1 #number of FiLM layers (if FiLM is chosen instead of concatenation). FiLM = 1 only applies to the latent vector
 kernel_deco: [4, 4, 4, 4, 4, 4, 3, 3] #kernels sizes of the Decoder
 n_neurons_f: 200 #number of neurons of each layer of f
-filters_deco: [32, 32, 32, 32, 32, 16, 1] #number of filters of the Decoder
+number_channels_input_cnns_deco : 32
+filters_deco: [32, 32, 32, 32, 32, 16, 2] #number of filters of the Decoder. Last one must be 2 for means anche variances
 stride_dec: [2, 2, 2, 2, 2, 2, 1, 1] #strides of the Decoder
 final_and_initial_activation: false #if true, after the final linear layer of the encoder and the initial linear layer of the decoder an activation function is used

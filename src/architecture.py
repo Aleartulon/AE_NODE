@@ -188,7 +188,7 @@ class F_Latent(nn.Module):
             return x
 
 class Convolutional_Decoder(nn.Module):
-    def __init__(self , dim_input, kernel, filters, stride, input_dfnn, output_dfnn, final_reduction, initial_activation):
+    def __init__(self , dim_input, kernel, filters, stride, input_dfnn, output_dfnn, final_reduction, initial_activation, number_channels_input_cnns_deco):
         """Parameters for the initialization of the Decoder
 
         Args:
@@ -202,8 +202,8 @@ class Convolutional_Decoder(nn.Module):
             initial_activation (bool) : if true, after the initial linear layer an activation function is used
         """        
         super().__init__()
-        self.filters = filters
-        self.channels = np.concatenate((filters[1:],[dim_input[0]]))
+        self.inputs_cnns = np.concatenate(([number_channels_input_cnns_deco],filters))
+        self.channels = np.concatenate((filters,[dim_input[0]]))
         self.transposed_convolutionals = nn.ModuleList([])
         self.size_kernel = int((kernel[0]-1)/2)
         self.dim_input = dim_input[1]
@@ -221,13 +221,14 @@ class Convolutional_Decoder(nn.Module):
 
         if self.dim_input == 1:
             for i in range(len(kernel)):
-                self.transposed_convolutionals.extend([nn.ConvTranspose1d(filters[i],self.channels[i],kernel[i],stride[i],padding=self.size_kernel, output_padding = 0)])
+                self.transposed_convolutionals.extend([nn.ConvTranspose1d(self.inputs_cnns[i],self.channels[i],kernel[i],stride[i],padding=self.size_kernel, output_padding = 0)])
                 nn.init.kaiming_uniform_(self.transposed_convolutionals[i].weight)
 
         elif self.dim_input == 2:
             for i in range(len(kernel)):
-                self.transposed_convolutionals.extend([nn.ConvTranspose2d(filters[i],self.channels[i],kernel[i],stride[i],padding=self.size_kernel, output_padding = 0)])
+                self.transposed_convolutionals.extend([nn.ConvTranspose2d(self.inputs_cnns[i],self.channels[i],kernel[i],stride[i],padding=self.size_kernel, output_padding = 0)])
                 nn.init.kaiming_uniform_(self.transposed_convolutionals[i].weight)
+
 
     def forward(self,x):
         
@@ -246,17 +247,15 @@ class Convolutional_Decoder(nn.Module):
             x = self.activation(x) #do not use this if relu in encoder and decoder !!!!!!!!
 
         if self.dim_input == 1:
-            x = x.view(x.size()[0], self.filters[0], self.final_reduction)
+            x = x.view(x.size()[0], self.inputs_cnns[0], self.final_reduction)
         elif self.dim_input == 2:
-            x = x.view(x.size()[0], self.filters[0], self.final_reduction, self.final_reduction)
+            x = x.view(x.size()[0], self.inputs_cnns[0], self.final_reduction, self.final_reduction)
     
         length = len(self.transposed_convolutionals)
-
         for i in range(length-1):
             x = self.transposed_convolutionals[i](x)
             x = self.activation(x)
         x = self.transposed_convolutionals[-1](x)
-        
         return x
 
 
