@@ -94,11 +94,8 @@ def loss_sup_mixed(conv_encoder, f, conv_decoder, field, dt, param, ma_mi, devic
             input_encoder = input_encoder.reshape(size[0] , size[1] , dim_input[0], y_grid , x_grid)
 
         l2_AR, l_final = advance_from_ic(conv_encoder, f, conv_decoder, input_encoder ,latent_space, tc.reshape(dt,(size[0],size[1]-1)).unsqueeze(-1), param.reshape(size[0] , (size[1]-1) , param.size(-1)), k, RK, ma_mi, device, start_backprop, size, loss_coeff[2], dim_input,train, time_dependence_in_f)
-        
-    if train:
-        regularization_latent = l1_latent_regularization(latent_space, lambda_regularization)
-    else:
-        regularization_latent = tc.tensor(0.0)
+     
+    regularization_latent = l1_latent_regularization(latent_space, lambda_regularization)
     return l1, l2_TF, l2_AR, l3, l_final, regularization_latent
 
 def l1_latent_regularization(x, lambda_l1):
