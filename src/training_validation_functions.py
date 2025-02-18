@@ -33,6 +33,7 @@ def train_epoch(conv_encoder, f, conv_decoder, ma_mi, device, optim, training_da
     l3_loss = 0
     loss = 0
     count = 0
+    regularization_loss = 0
     conv_encoder.train()
     f.train()
     conv_decoder.train()
@@ -53,8 +54,9 @@ def train_epoch(conv_encoder, f, conv_decoder, ma_mi, device, optim, training_da
         l2_TF_loss += l2_TF.detach().cpu().item()
         l2_AR_loss += l2_AR.detach().cpu().item()
         l3_loss += l3.detach().cpu().item()
+        regularization_loss += regularization_latent.detach().cpu().item()
         count += 1
-    return l1_loss/count, l2_TF_loss/count, l2_AR_loss/count ,l3_loss/count, loss/count
+    return l1_loss/count, l2_TF_loss/count, l2_AR_loss/count ,l3_loss/count, regularization_loss/count, loss/count
 
 
 def valid_epoch(conv_encoder, f, conv_decoder, ma_mi, device, validation_data,loss_coeff, RK, k, start_backprop, dim_input, time_dependence_in_f):
@@ -87,12 +89,13 @@ def valid_epoch(conv_encoder, f, conv_decoder, ma_mi, device, validation_data,lo
     l2_AR_loss = 0
     l3_loss = 0
     loss = 0
+    regularization_loss = 0 
     l_real = 0
     count = 0
     with tc.no_grad():
         for field, dt, param in validation_data:
 
-            l1,l2_TF,l2_AR,l3, l_final,_ = loss_sup_mixed(conv_encoder, f, conv_decoder, field, dt, param ,ma_mi, device,loss_coeff, RK, k, start_backprop, dim_input, 0,False, time_dependence_in_f)
+            l1,l2_TF,l2_AR,l3, l_final, regularization_latent = loss_sup_mixed(conv_encoder, f, conv_decoder, field, dt, param ,ma_mi, device,loss_coeff, RK, k, start_backprop, dim_input, 0,False, time_dependence_in_f)
 
             loss += (l1[0]+l2_TF+l2_AR+l3+l_final).detach().item()
             l_real +=  l_final.detach().item()
@@ -101,10 +104,10 @@ def valid_epoch(conv_encoder, f, conv_decoder, ma_mi, device, validation_data,lo
             l2_TF_loss += l2_TF.detach().cpu().item()
             l2_AR_loss += l2_AR.detach().cpu().item()
             l3_loss += l3.detach().cpu().item()
-
+            regularization_loss += regularization_latent.detach().cpu().item()
             count += 1
 
-    return l1_loss/count, l1_loss_unnorm/count, l2_TF_loss/count, l2_AR_loss/count , l3_loss/count, loss/count, l_real/count
+    return l1_loss/count, l1_loss_unnorm/count, l2_TF_loss/count, l2_AR_loss/count , l3_loss/count, l_real/count, regularization_loss/count , loss/count
 
 
 def nn_training(conv_encoder ,f, conv_decoder, training_data, validation_data, ma_mi, device, optim, 
@@ -163,14 +166,17 @@ def nn_training(conv_encoder ,f, conv_decoder, training_data, validation_data, m
         train_l2_TF = np.zeros(epochs)
         train_l2_AR = np.zeros(epochs)
         train_l3 = np.zeros(epochs)
+        train_regularization = np.zeros(epochs)
         train_loss_tot = np.zeros(epochs)
+
         valid_l1 = np.zeros(epochs)
         valid_l1_unnorm = np.zeros(epochs)
         valid_l2_TF = np.zeros(epochs)
         valid_l2_AR = np.zeros(epochs)
         valid_l3 = np.zeros(epochs)
-        valid_loss_tot = np.zeros(epochs)
         valid_real = np.zeros(epochs)
+        valid_regularization = np.zeros(epochs)
+        valid_loss_tot = np.zeros(epochs)
 
         if TBPP_dynamic[0]:
             start_backprop = [start_backprop[0],1]
@@ -184,12 +190,13 @@ def nn_training(conv_encoder ,f, conv_decoder, training_data, validation_data, m
                 break
             time1 = time.time()
             if i < time_of_AE: #use only AR
-                train_l1_data, train_l2_TF_data, train_l2_AR_data, train_l3_data, train_loss_data = train_epoch(conv_encoder, f, conv_decoder, ma_mi, device, optim, training_data, [loss_coeff[0],0,0,0], RK, k, start_backprop, dim_input, lambda_regularization, time_dependence_in_f, clipping)
-                valid_l1_data, valid_l1_unnorm_data, valid_l2_TF_data, valid_l2_AR_data, valid_l3_data, valid_loss_data, valid_real_data = valid_epoch(conv_encoder, f, conv_decoder, ma_mi, device, validation_data,[1,1,1,1], RK, k, start_backprop, dim_input, time_dependence_in_f)
-                valid_loss_data = 100.0
+                train_l1_data, train_l2_TF_data, train_l2_AR_data, train_l3_data, train_regularization_data, train_loss_data = train_epoch(conv_encoder, f, conv_decoder, ma_mi, device, optim, training_data, [loss_coeff[0],0,0,0], RK, k, start_backprop, dim_input, lambda_regularization, time_dependence_in_f, clipping)
+                valid_l1_data, valid_l1_unnorm_data, valid_l2_TF_data, valid_l2_AR_data, valid_l3_data, valid_real_data, valid_regularization_data, valid_loss_data = valid_epoch(conv_encoder, f, conv_decoder, ma_mi, device, validation_data,[1,1,1,1], RK, k, start_backprop, dim_input, time_dependence_in_f)
+                if is_coupled[0]:
+                    valid_loss_data = 100.0
             elif i >=time_of_AE and i < time_only_TF: #use only TF
-                train_l1_data, train_l2_TF_data, train_l2_AR_data, train_l3_data, train_loss_data = train_epoch(conv_encoder, f, conv_decoder, ma_mi, device, optim, training_data,[loss_coeff[0],loss_coeff[1],0,loss_coeff[3]], RK, k, start_backprop, dim_input,lambda_regularization, time_dependence_in_f, clipping)
-                valid_l1_data, valid_l1_unnorm_data, valid_l2_TF_data, valid_l2_AR_data, valid_l3_data, valid_loss_data, valid_real_data = valid_epoch(conv_encoder, f, conv_decoder, ma_mi, device, validation_data,[1,1,1,1], RK, k, start_backprop, dim_input, time_dependence_in_f)
+                train_l1_data, train_l2_TF_data, train_l2_AR_data, train_l3_data, train_regularization_data, train_loss_data = train_epoch(conv_encoder, f, conv_decoder, ma_mi, device, optim, training_data,[loss_coeff[0],loss_coeff[1],0,loss_coeff[3]], RK, k, start_backprop, dim_input,lambda_regularization, time_dependence_in_f, clipping)
+                valid_l1_data, valid_l1_unnorm_data, valid_l2_TF_data, valid_l2_AR_data, valid_l3_data, valid_real_data, valid_regularization_data, valid_loss_data = valid_epoch(conv_encoder, f, conv_decoder, ma_mi, device, validation_data,[1,1,1,1], RK, k, start_backprop, dim_input, time_dependence_in_f)
             else:
                 loss_coeff_2 = loss_coeff[2] * AR_strength * full_training_count
                 full_training_count +=1
@@ -199,8 +206,8 @@ def nn_training(conv_encoder ,f, conv_decoder, training_data, validation_data, m
                 if TBPP_dynamic[0]  and start_backprop[1] < TBPP_dynamic[2] and full_training_count%TBPP_dynamic[1] == 0:
                     start_backprop[1] += 1
                     
-                train_l1_data, train_l2_TF_data, train_l2_AR_data, train_l3_data, train_loss_data = train_epoch(conv_encoder, f, conv_decoder, ma_mi, device, optim, training_data,[loss_coeff[0],loss_coeff[1],loss_coeff_2,loss_coeff[3]], RK, k, start_backprop, dim_input,lambda_regularization, time_dependence_in_f, clipping)
-                valid_l1_data, valid_l1_unnorm_data, valid_l2_TF_data, valid_l2_AR_data, valid_l3_data, valid_loss_data, valid_real_data = valid_epoch(conv_encoder, f, conv_decoder, ma_mi, device, validation_data,[1,1,1,1], RK, k,start_backprop, dim_input, time_dependence_in_f)
+                train_l1_data, train_l2_TF_data, train_l2_AR_data, train_l3_data, train_regularization_data, train_loss_data = train_epoch(conv_encoder, f, conv_decoder, ma_mi, device, optim, training_data,[loss_coeff[0],loss_coeff[1],loss_coeff_2,loss_coeff[3]], RK, k, start_backprop, dim_input,lambda_regularization, time_dependence_in_f, clipping)
+                valid_l1_data, valid_l1_unnorm_data, valid_l2_TF_data, valid_l2_AR_data, valid_l3_data, valid_real_data, valid_regularization_data, valid_loss_data = valid_epoch(conv_encoder, f, conv_decoder, ma_mi, device, validation_data,[1,1,1,1], RK, k,start_backprop, dim_input, time_dependence_in_f)
 
             time2 = time.time()
 
@@ -212,42 +219,48 @@ def nn_training(conv_encoder ,f, conv_decoder, training_data, validation_data, m
             train_l2_TF[i] = train_l2_TF_data
             train_l2_AR[i] = train_l2_AR_data
             train_l3[i] = train_l3_data
+            train_regularization[i] = train_regularization_data
             train_loss_tot[i] = train_loss_data
+
             valid_l1[i] = valid_l1_data
             valid_l1_unnorm[i] = valid_l1_unnorm_data
             valid_l2_TF[i] = valid_l2_TF_data
             valid_l2_AR[i] = valid_l2_AR_data
             valid_l3[i] = valid_l3_data
-            valid_loss_tot[i] = valid_loss_data
             valid_real[i] = valid_real_data
+            valid_regularization[i] = valid_regularization_data
+            valid_loss_tot[i] = valid_loss_data
 
             np.save(PATH + "/losses/train_l1.npy", train_l1)
             np.save(PATH + "/losses/train_l2_TF.npy", train_l2_TF)
             np.save(PATH + "/losses/train_l2_AR.npy", train_l2_AR)
             np.save(PATH + "/losses/train_l3.npy", train_l3)
+            np.save(PATH + "/losses/train_regularization_data.npy", train_regularization_data)
             np.save(PATH + "/losses/train_loss_tot.npy", train_loss_tot)
+
             np.save(PATH + "/losses/valid_l1.npy", valid_l1)
             np.save(PATH + "/losses/valid_l1_unnorm.npy", valid_l1_unnorm)
             np.save(PATH + "/losses/valid_l2_TF.npy", valid_l2_TF)
             np.save(PATH + "/losses/valid_l2_AR.npy", valid_l2_AR)
             np.save(PATH + "/losses/valid_l3.npy", valid_l3)
-            np.save(PATH + "/losses/valid_loss_tot.npy", valid_loss_tot)
             np.save(PATH + "/losses/valid_real.npy", valid_real)
+            np.save(PATH + "/losses/valid_regularization.npy", valid_regularization)
+            np.save(PATH + "/losses/valid_loss_tot.npy", valid_loss_tot)
 
 
             print("Epoch: " +str(i)+', ' + str(time2-time1)+ ' s')
             if TBPP_dynamic[0]:
                 print("Start_backprop for TBPP: " +str(start_backprop[1]))
             print("Loss coefficient 2: " +str(loss_coeff_2))
-            print('Train_loss_data = ' + str(train_loss_data) + ', l1 train loss = ' +str(train_l1_data) + ', l2 TF train loss = ' + str(train_l2_TF_data)+ ', l2 AR train loss = ' + str(train_l2_AR_data)+ ', l3 train loss = ' + str(train_l3_data))
-            print('Valid_loss_data = ' + str(valid_loss_data)+ ', valid Real loss = ' +str(valid_real_data)  + ', l1 valid loss = ' +str(valid_l1_data) +  ', l1 valid unnorm loss = ' +str(valid_l1_unnorm_data) + ', l2 valid TF loss = ' + str(valid_l2_TF_data)+ ', l2 valid AR loss = ' + str(valid_l2_AR_data)+ ', l3 valid loss = ' + str(valid_l3_data))
+            print('Train_loss_data = ' + str(train_loss_data) + ', l1 train loss = ' +str(train_l1_data) + ', l2 TF train loss = ' + str(train_l2_TF_data)+ ', l2 AR train loss = ' + str(train_l2_AR_data)+ ', l3 train loss = ' + str(train_l3_data)+ ', regularization loss = ' + str(train_regularization_data))
+            print('Valid_loss_data = ' + str(valid_loss_data)+ ', valid Real loss = ' +str(valid_real_data)  + ', l1 valid loss = ' +str(valid_l1_data) +  ', l1 valid unnorm loss = ' +str(valid_l1_unnorm_data) + ', l2 valid TF loss = ' + str(valid_l2_TF_data)+ ', l2 valid AR loss = ' + str(valid_l2_AR_data)+ ', l3 valid loss = ' + str(valid_l3_data)+ ', valid regularization = ' + str(valid_regularization_data))
             print('The validation loss has not decreased for ' + str(early_stopping) + ' epochs!')
             
             print('------------------------------------------------------')
 
             #check if training a noncoupled system and adjust accordingly the validatin losses to be checked for early stopping
             if not is_coupled[0] and is_coupled[1] == 'AE' and i >=time_of_AE:
-                valid_loss_data = valid_l1_data
+                valid_loss_data = valid_l1_data + valid_regularization_data
             elif not is_coupled[0] and is_coupled[1] == 'NODE':
                 valid_loss_data = valid_l2_TF_data + valid_l2_AR_data
 
