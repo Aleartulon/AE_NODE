@@ -25,8 +25,10 @@ class Convolutional_Encoder(nn.Module):
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
         self.gelu = nn.GELU()
-        self.activation = self.gelu
+        self.elu = nn.ELU()
         self.tanh = nn.Tanh()
+
+        self.activation = self.gelu
 
         # Convolutional layers and BatchNorm layers
         self.convolutionals = nn.ModuleList()

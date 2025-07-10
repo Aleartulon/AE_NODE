@@ -1,6 +1,60 @@
 from src.data_functions import *
 
-def loss_sup_mixed(conv_encoder, f, conv_decoder, field, dt, param, ma_mi, device, loss_coeff, RK, k, start_backprop, dim_input, lambda_regularization,train, time_dependence_in_f):
+def auto_encoding_loss(input_encoder, conv_encoder, conv_decoder, loss_coeff, dim_input, ma_mi, train):
+    latent_space = conv_encoder(input_encoder)
+    
+    if train:
+        back_to_physical = conv_decoder(latent_space)
+        l1 = L2_relative_loss_general(back_to_physical,input_encoder, dim_input[1], False) * loss_coeff[0]
+    else:
+        back_to_physical = conv_decoder(latent_space)
+        first = L2_relative_loss_general(back_to_physical,input_encoder, dim_input[1], False) * loss_coeff[0]
+
+        back_to_physical = inverse_normalization_field(back_to_physical, ma_mi[0], ma_mi[1], dim_input[1])
+        second = L2_relative_loss_general(back_to_physical, inverse_normalization_field(input_encoder, ma_mi[0], ma_mi[1], dim_input[1]) , dim_input[1], False) * loss_coeff[0]
+        l1 = [first, second]
+    return latent_space, l1
+
+def latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, grids, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, lambda_regularization, dim_input, start_backprop):
+    latent_dim = latent_space.size()[-1]
+    latent_space = latent_space.reshape(size[0], size[1], latent_dim)
+    input_processor = latent_space[:, 0:-1, :].reshape(size[0]*(size[1]-1),latent_dim)
+
+    dt = tc.reshape(dt,(size[0]*(size[1]-1), 1))
+    param = param[:,0:-1,:].reshape(size[0] * (size[1]-1) , param.size(-1))
+    if loss_coeff[1] <= 0:
+        l2_TF = tc.tensor(0.0)
+    else:
+        e2_latent_TF = processor_First_Order(f,input_processor,dt, param, k, RK, ma_mi, device, time_dependence_in_f)
+        e2_latent_TF = e2_latent_TF.reshape(size[0], (size[1]-1), latent_dim)
+        l2_TF = L2_relative_loss_general(e2_latent_TF, latent_space[:, 1:, :], 1, True) * loss_coeff[1]
+    
+    if loss_coeff[3] <= 0:
+        l3 = tc.tensor(0.0)
+    else:
+        random_dt = tc.rand(size[0]*(size[1]-1),1, device=device) * dt
+        e2_middle_latent = processor_First_Order(f, input_processor,random_dt, param, k, RK, ma_mi, device, time_dependence_in_f)
+        e2_final = processor_First_Order(f, e2_middle_latent, dt-random_dt, param, k, RK, ma_mi, device, time_dependence_in_f)
+        e2_final = e2_final.reshape(size[0], (size[1]-1), latent_dim)
+        l3 = L2_relative_loss_general(e2_final, latent_space[:, 1:, :], 1, True) * loss_coeff[3]
+
+    
+    if loss_coeff[2] <= 0:
+        with tc.no_grad():
+            l2_AR = tc.tensor(0.0)
+            l_final = tc.tensor(0.0)
+    else:
+        if dim_input[1] == 1:
+            input_encoder = input_encoder.reshape(size[0] , size[1] , dim_input[0], grids[0])
+        elif dim_input[1] ==2:
+            input_encoder = input_encoder.reshape(size[0] , size[1] , dim_input[0], grids[1] , grids[0])
+
+        l2_AR, l_final = advance_from_ic(conv_encoder, f, conv_decoder, input_encoder ,latent_space, tc.reshape(dt,(size[0],size[1]-1)).unsqueeze(-1), param.reshape(size[0] , (size[1]-1) , param.size(-1)), k, RK, ma_mi, device, start_backprop, size, loss_coeff[2], dim_input,train, time_dependence_in_f)
+     
+    regularization_latent = l1_latent_regularization(latent_space, lambda_regularization)
+    return l2_TF, l2_AR, l3, l_final, regularization_latent
+
+def loss_sup_mixed(conv_encoder, f, conv_decoder, field, dt, param, ma_mi, device, loss_coeff, RK, k, start_backprop, dim_input, lambda_regularization,train, time_dependence_in_f, is_coupled):
 
     """ this function defines all the terms that make up the loss function, L_1, L_2^T, L_2^A and L_3.
 
@@ -33,6 +87,7 @@ def loss_sup_mixed(conv_encoder, f, conv_decoder, field, dt, param, ma_mi, devic
     #normalization and reshaping of the fields. Be careful, normalization here is an in-place hoperation
     if dim_input[1] == 1:
         x_grid = size[-1]
+        grids = [x_grid]
 
         field = normalize_field_known_values_field(field, ma_mi[0], ma_mi[1])
         input_encoder = field.reshape(size[0] * size[1] , dim_input[0], x_grid)
@@ -40,62 +95,29 @@ def loss_sup_mixed(conv_encoder, f, conv_decoder, field, dt, param, ma_mi, devic
     elif dim_input[1] == 2:
         x_grid = size[-1]
         y_grid = size[-2]
+        grids = [x_grid, y_grid]
 
         field = normalize_field_known_values_field(field, ma_mi[0], ma_mi[1])
         input_encoder = field.reshape(size[0] * size[1] , dim_input[0], y_grid, x_grid)
 
     #First loss: invertibility of autoencoder enc-dec-enc
-    latent_space = conv_encoder(input_encoder)
-    
-    if train:
-        back_to_physical = conv_decoder(latent_space)
-        l1 = L2_relative_loss_general(back_to_physical,input_encoder, dim_input[1], False) * loss_coeff[0]
-    else:
-        back_to_physical = conv_decoder(latent_space)
-        first = L2_relative_loss_general(back_to_physical,input_encoder, dim_input[1], False) * loss_coeff[0]
-
-        back_to_physical = inverse_normalization_field(back_to_physical, ma_mi[0], ma_mi[1], dim_input[1])
-        second = L2_relative_loss_general(back_to_physical, inverse_normalization_field(input_encoder, ma_mi[0], ma_mi[1], dim_input[1]) , dim_input[1], False) * loss_coeff[0]
-        l1 = [first, second]
+    if is_coupled[0] == True or (is_coupled[0] == False and is_coupled[1] == 'AE'):
+        latent_space, l1 = auto_encoding_loss(input_encoder, conv_encoder, conv_decoder, loss_coeff, dim_input, ma_mi, train)
+    elif (is_coupled[0] == False and is_coupled[1] == 'NODE'):
+        with tc.no_grad():
+            latent_space, l1 = auto_encoding_loss(input_encoder, conv_encoder, conv_decoder, loss_coeff, dim_input, ma_mi, train)
 
     #Second loss: dynamics of latent space for TF
-    latent_dim = latent_space.size()[-1]
-    latent_space = latent_space.reshape(size[0], size[1], latent_dim)
-    input_processor = latent_space[:, 0:-1, :].reshape(size[0]*(size[1]-1),latent_dim)
+    #Third loss: dynamics of latent space for AR
+    #Fourth loss: Forcing learning one f which is able to predict in smaller dt (for prediction in latent space)
+    # fifth loss: regulatization of latent space
 
-    dt = tc.reshape(dt,(size[0]*(size[1]-1), 1))
-    param = param[:,0:-1,:].reshape(size[0] * (size[1]-1) , param.size(-1))
-    if loss_coeff[1] <= 0:
-        l2_TF = tc.tensor(0.0)
-    else:
-        e2_latent_TF = processor_First_Order(f,input_processor,dt, param, k, RK, ma_mi, device, time_dependence_in_f)
-        e2_latent_TF = e2_latent_TF.reshape(size[0], (size[1]-1), latent_dim)
-        l2_TF = L2_relative_loss_general(e2_latent_TF, latent_space[:, 1:, :], 1, True) * loss_coeff[1]
-    #Third loss: Forcing learning one f which is able to predict in smaller dt (for prediction in latent space)
-    if loss_coeff[3] <= 0:
-        l3 = tc.tensor(0.0)
-    else:
-        random_dt = tc.rand(size[0]*(size[1]-1),1, device=device) * dt
-        e2_middle_latent = processor_First_Order(f, input_processor,random_dt, param, k, RK, ma_mi, device, time_dependence_in_f)
-        e2_final = processor_First_Order(f, e2_middle_latent, dt-random_dt, param, k, RK, ma_mi, device, time_dependence_in_f)
-        e2_final = e2_final.reshape(size[0], (size[1]-1), latent_dim)
-        l3 = L2_relative_loss_general(e2_final, latent_space[:, 1:, :], 1, True) * loss_coeff[3]
-
-    #Second loss: dynamics of latent space for AR
-    
-    if loss_coeff[2] <= 0:
+    if is_coupled[0] == True or (is_coupled[0] == False and is_coupled[1] == 'NODE'):
+        l2_TF, l2_AR, l3, l_final, regularization_latent = latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, grids, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, lambda_regularization, dim_input, start_backprop)
+    elif (is_coupled[0] == False and is_coupled[1] == 'AE'):
         with tc.no_grad():
-            l2_AR = tc.tensor(0.0)
-            l_final = tc.tensor(0.0)
-    else:
-        if dim_input[1] == 1:
-            input_encoder = input_encoder.reshape(size[0] , size[1] , dim_input[0], x_grid)
-        elif dim_input[1] ==2:
-            input_encoder = input_encoder.reshape(size[0] , size[1] , dim_input[0], y_grid , x_grid)
+            l2_TF, l2_AR, l3, l_final, regularization_latent = latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, grids, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, lambda_regularization, dim_input, start_backprop)
 
-        l2_AR, l_final = advance_from_ic(conv_encoder, f, conv_decoder, input_encoder ,latent_space, tc.reshape(dt,(size[0],size[1]-1)).unsqueeze(-1), param.reshape(size[0] , (size[1]-1) , param.size(-1)), k, RK, ma_mi, device, start_backprop, size, loss_coeff[2], dim_input,train, time_dependence_in_f)
-     
-    regularization_latent = l1_latent_regularization(latent_space, lambda_regularization)
     return l1, l2_TF, l2_AR, l3, l_final, regularization_latent
 
 def l1_latent_regularization(x, lambda_l1):
