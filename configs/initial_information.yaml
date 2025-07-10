@@ -1,10 +1,10 @@
 physics_model : 'datasets/molenkamp' # this is the Path to a directory for the training on a given dataset
-description : '/5_dim_not_coupled/' #for a given dataset, one can train with different hyperparameters, hence the 'description'
+description : '/5_dim_not_coupled_NODE/' #for a given dataset, one can train with different hyperparameters, hence the 'description'
 epochs: 5000 #maximum number of epochs
 dim_parameter: 5  # Number of parameters of the PDE, including time if the function f must depende on time
 time_dependence_in_f: false #true if f depende on time as well
-learning_rate: 0.0015 #initial learning rate
-batch_size: 16 #batch size
+learning_rate: 0.002 #initial learning rate
+batch_size: 64 #batch size
 loss_coeff_TF_AR_together: [1, 1, 1, 1]  # coefficients that are multiplied to the loss function terms, signaling the relative importance of each [AE, TF, AUTOREGRESSIVE, TIME_GENERALIZATION]
 k: 4 # stage of the Runge-Kutta solver for the latent dynamics
 dim_input: [1, 2]  # first dimension is # of channels (one if the predicted solution is a scalar field), second is spatial dimensions per channel.
@@ -12,7 +12,7 @@ gamma_lr: 0.995 # gamma of  tc.optim.lr_scheduler.ExponentialLR()
 lambda_regularization: 0.0 #coefficients in front of the regularization term for the latent vector
 AR_strength: 0.002 #initial coeffient of the loss function term L_i^{A,k_2}
 TBPP_dynamic: [1, 20, 20]  # [if 1 k_2 increases dynamically from k_2=1, number of epochs after which k_2 is increased by 1, max rvalue of k_2]
-start_backprop: [1, 19]  # Backpropagation strategy: look at function 'advance_from_ic' to see the 3 different options
+start_backprop: [1]  # Backpropagation strategy: look at function 'advance_from_ic' to see the 3 different options.
 checkpoint: false  # if true uses existing checkpoint
 time_of_AE: 10 # number of initial epochs where only the AutoEncoder is trained, i.e., loss_coeff_TF_AR_together = [1, 0, 0, 0]. In parallel of this a linear warm-up of the learning rate is performed
 time_only_TF : 0 #number of initial epochs after warm up where only TF and not AR approach is used
@@ -22,8 +22,8 @@ which_device : 'cuda' #device where to train
 data_path : '../../../../../scratch/aalelonghi/molenkamp/' #path of training and validation data
 normalization_field_ma : [True, 1.0] # if true, maxima of each dimension of the solution fields are found. If not, dimension 1,2, etc are the maxima of dimension 1,2, etc of the solution field (only one if it is a scalar field)
 normalization_field_mi : [True, 0.0] # if true, minima of each dimension of the solution fields are found. If not, dimension 1,2, etc are the minima of dimension 1,2, etc of the solution field (only one if it is a scalar field)
-normalization_parameters_ma : [True, 0.0] #if True, maxima of each dimension of the vector of parameters are found. If not, dimension 1,2, etc are the maxima of dimension 1,2, etc of the parameter vector
+normalization_parameters_ma : [True, 1.0] #if True, maxima of each dimension of the vector of parameters are found. If not, dimension 1,2, etc are the maxima of dimension 1,2, etc of the parameter vector
 normalization_parameters_mi : [True, 0.0] #if True, minima of each dimension of the vector of parameters are found. If not, dimension 1,2, etc are the minima of dimension 1,2, etc of the parameter vector
-is_coupled : [false, 'AE'] #if true the AutoEncoder (AE) is trained coupled with the NODE. if false, if 'AE' the AE is trained, if 'NODE' the NODE is trained.
+is_coupled : [false, 'NODE'] #if true the AutoEncoder (AE) is trained coupled with the NODE. if false, if 'AE' the AE is trained, if 'NODE' the NODE is trained.
 loss_coeff_not_coupled : [1, 1, 1, 1] #if is_coupled[0] == false, adjust accordingly the loss coefficients
-path_trained_AE : 'datasets/molenkamp/5_dim_not_coupled' #if is_coupled : [false, 'NODE'], provide the path to the models weights of the AE
+path_trained_AE : 'datasets/molenkamp/Models/5_dim_not_coupled' #if is_coupled : [false, 'NODE'], provide the path to the models weights of the AE

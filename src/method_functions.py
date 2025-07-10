@@ -15,7 +15,7 @@ def auto_encoding_loss(input_encoder, conv_encoder, conv_decoder, loss_coeff, di
         l1 = [first, second]
     return latent_space, l1
 
-def latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, x_grid, y_grid, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, lambda_regularization, dim_input, start_backprop):
+def latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, grids, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, lambda_regularization, dim_input, start_backprop):
     latent_dim = latent_space.size()[-1]
     latent_space = latent_space.reshape(size[0], size[1], latent_dim)
     input_processor = latent_space[:, 0:-1, :].reshape(size[0]*(size[1]-1),latent_dim)
@@ -45,9 +45,9 @@ def latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, x_grid, y_gr
             l_final = tc.tensor(0.0)
     else:
         if dim_input[1] == 1:
-            input_encoder = input_encoder.reshape(size[0] , size[1] , dim_input[0], x_grid)
+            input_encoder = input_encoder.reshape(size[0] , size[1] , dim_input[0], grids[0])
         elif dim_input[1] ==2:
-            input_encoder = input_encoder.reshape(size[0] , size[1] , dim_input[0], y_grid , x_grid)
+            input_encoder = input_encoder.reshape(size[0] , size[1] , dim_input[0], grids[1] , grids[0])
 
         l2_AR, l_final = advance_from_ic(conv_encoder, f, conv_decoder, input_encoder ,latent_space, tc.reshape(dt,(size[0],size[1]-1)).unsqueeze(-1), param.reshape(size[0] , (size[1]-1) , param.size(-1)), k, RK, ma_mi, device, start_backprop, size, loss_coeff[2], dim_input,train, time_dependence_in_f)
      
@@ -87,6 +87,7 @@ def loss_sup_mixed(conv_encoder, f, conv_decoder, field, dt, param, ma_mi, devic
     #normalization and reshaping of the fields. Be careful, normalization here is an in-place hoperation
     if dim_input[1] == 1:
         x_grid = size[-1]
+        grids = [x_grid]
 
         field = normalize_field_known_values_field(field, ma_mi[0], ma_mi[1])
         input_encoder = field.reshape(size[0] * size[1] , dim_input[0], x_grid)
@@ -94,6 +95,7 @@ def loss_sup_mixed(conv_encoder, f, conv_decoder, field, dt, param, ma_mi, devic
     elif dim_input[1] == 2:
         x_grid = size[-1]
         y_grid = size[-2]
+        grids = [x_grid, y_grid]
 
         field = normalize_field_known_values_field(field, ma_mi[0], ma_mi[1])
         input_encoder = field.reshape(size[0] * size[1] , dim_input[0], y_grid, x_grid)
@@ -111,10 +113,10 @@ def loss_sup_mixed(conv_encoder, f, conv_decoder, field, dt, param, ma_mi, devic
     # fifth loss: regulatization of latent space
 
     if is_coupled[0] == True or (is_coupled[0] == False and is_coupled[1] == 'NODE'):
-        l2_TF, l2_AR, l3, l_final, regularization_latent = latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, x_grid, y_grid, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, lambda_regularization, dim_input, start_backprop)
+        l2_TF, l2_AR, l3, l_final, regularization_latent = latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, grids, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, lambda_regularization, dim_input, start_backprop)
     elif (is_coupled[0] == False and is_coupled[1] == 'AE'):
         with tc.no_grad():
-            l2_TF, l2_AR, l3, l_final, regularization_latent = latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, x_grid, y_grid, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, lambda_regularization, dim_input, start_backprop)
+            l2_TF, l2_AR, l3, l_final, regularization_latent = latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, grids, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, lambda_regularization, dim_input, start_backprop)
 
     return l1, l2_TF, l2_AR, l3, l_final, regularization_latent
 
