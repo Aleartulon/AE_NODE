@@ -57,7 +57,7 @@ def main():
 
     #depending on whether the system is coupled, define f and load conv_encoder and conv_decoder
     if not initial_information['is_coupled'][0] and initial_information['is_coupled'][1] == 'NODE':
-        checkpoint = tc.load(initial_information['path_trained_AE']+'/checkpoint/check.pt', map_location=device, weights_only=True)
+        checkpoint = tc.load(initial_information['path_trained_AE']+'/checkpoint/check.pt', map_location=device, weights_only=False)
 
         conv_encoder.load_state_dict(checkpoint['enco'])
         conv_decoder.load_state_dict(checkpoint['dec'])
