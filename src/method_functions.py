@@ -19,8 +19,7 @@ def latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, grids, laten
     latent_dim = latent_space.size()[-1]
     latent_space = latent_space.reshape(size[0], size[1], latent_dim)
     input_processor = latent_space[:, 0:-1, :].reshape(size[0]*(size[1]-1),latent_dim)
-
-    dt = tc.reshape(dt,(size[0]*(size[1]-1), 1))
+    dt = tc.reshape(dt[:,0:-1],(size[0]*(size[1]-1), 1))
     param = param[:,0:-1,:].reshape(size[0] * (size[1]-1) , param.size(-1))
     if loss_coeff[1] <= 0:
         l2_TF = tc.tensor(0.0)

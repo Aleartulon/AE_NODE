@@ -274,14 +274,8 @@ class CustomStarDataset_Big_Dataset(Dataset):
             torch.tensor(), torch.tensor(): returns fields and params of batch at index idx
         """        
         if self.dim_param > 0:
-            if self.time_dependence_in_f:
-                params = self.params[idx][0:self.dim_param-1]*tc.ones(self.size[1]).unsqueeze(-1) #-1 if time is considered as parameter
-            else:
-                params = self.params[idx][0:self.dim_param]*tc.ones(self.size[1]).unsqueeze(-1)
-            if self.time_dependence_in_f:
-                time = tc.arange(0,2.05,0.05).unsqueeze(-1)
-                params = tc.cat((params,time), dim=-1) 
+            params = self.params[idx][:,0:-1]
         else:
             params = tc.zeros(self.size[1]).unsqueeze(-1)
-        dt = tc.ones(self.size[1]-1)*self.params[idx][-1]
+        dt = self.params[idx][:,-1] #dt is always the last column
         return self.fields[idx] ,dt , params
