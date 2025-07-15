@@ -184,8 +184,8 @@ def get_max_and_min(dataset, param_size, dim_input, normalization_field_ma, norm
 
     if not normalization_parameters_ma[0]:
         for j in range(param_size):
-            ma_param[i] = normalization_parameters_ma[j+1]
-            mi_param[i] = normalization_parameters_mi[j+1]
+            ma_param[j] = normalization_parameters_ma[j+1]
+            mi_param[j] = normalization_parameters_mi[j+1]
 
     return [ma_field.clone().detach(), mi_field.clone().detach(), ma_param.clone().detach(), mi_param.clone().detach()]
 
