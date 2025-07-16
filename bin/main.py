@@ -68,20 +68,20 @@ def main():
             param.requires_grad = False
 
         params_to_optimize = [
-        {'params': f.parameters(), 'weight_decay': 0}
+        {'params': f.parameters(), 'weight_decay': model_information['weight_decay']['dfnn']}
     ]
         
     elif not initial_information['is_coupled'][0] and initial_information['is_coupled'][1] == 'AE':
         params_to_optimize = [
-        {'params': conv_encoder.parameters(), 'weight_decay': 0},
-        {'params': conv_decoder.parameters(), 'weight_decay': 0}
+        {'params': conv_encoder.parameters(), 'weight_decay': model_information['weight_decay']['encoder']},
+        {'params': conv_decoder.parameters(), 'weight_decay': model_information['weight_decay']['decoder']}
     ]
 
     elif initial_information['is_coupled'][0]:
         params_to_optimize = [
-        {'params': conv_encoder.parameters(), 'weight_decay': 0},
-        {'params': f.parameters(), 'weight_decay': 0},
-        {'params': conv_decoder.parameters(), 'weight_decay': 0}
+        {'params': conv_encoder.parameters(), 'weight_decay': model_information['weight_decay']['encoder']},
+        {'params': f.parameters(), 'weight_decay': model_information['weight_decay']['dfnn']},
+        {'params': conv_decoder.parameters(), 'weight_decay': model_information['weight_decay']['decoder']}
     ]
     #move the models to the device
     conv_encoder.to(device)
