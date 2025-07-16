@@ -139,7 +139,7 @@ def main():
     nn_training(conv_encoder ,f, conv_decoder,training, validation, ma_mi, device, optim, initial_information['epochs'], 
         initial_information['PATH'], initial_information['loss_coeff_TF_AR_together'], initial_information['AR_strength'], initial_information['time_only_TF'], pre_scheduler,scheduler, RK, initial_information['k'], initial_information['start_backprop'], 
         initial_information['checkpoint'], initial_information['time_of_AE'], initial_information['dim_input'], 
-        initial_information['lambda_regularization'], initial_information['time_dependence_in_f'], 
+        model_information['lambda_regularization'], initial_information['time_dependence_in_f'], 
         initial_information['TBPP_dynamic'],initial_information['clipping'], initial_information['is_coupled'])
     
 if __name__ == '__main__':
