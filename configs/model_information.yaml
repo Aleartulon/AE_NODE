@@ -11,3 +11,7 @@ number_channels_input_cnns_deco : 32
 filters_deco: [32, 32, 32, 32, 32, 16] #number of filters of the Decoder. Last one must be 2 for means anche variances
 stride_dec: [2, 2, 2, 2, 2, 2, 1] #strides of the Decoder
 final_and_initial_activation: false #if true, after the final linear layer of the encoder and the initial linear layer of the decoder an activation function is used
+weight_decay:
+  encoder: 0.0
+  dfnn: 0.0
+  decoder: 0.0
