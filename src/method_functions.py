@@ -131,7 +131,10 @@ def l1_latent_regularization(x, lambda_l1):
     Returns:
         torch.tensor: scalar tensor, it is the regularization loss
     """    
-    l1_norm = tc.mean(tc.abs(x))
+    if lambda_l1 != 0:
+        l1_norm = tc.mean(tc.abs(x))
+    else:
+        return tc.tensor(0, device = x.device)
 
     return lambda_l1 * l1_norm
 
@@ -202,7 +205,7 @@ def advance_from_ic(conv_encoder, f, conv_decoder, input_encoder, true_latent, d
         l_final = tc.tensor(0., device = device)
         l2_AR = tc.tensor(0., device = device)
 
-        if start_backprop[1] == 0:
+        if (size[1]-1-start_backprop[1]) == 0:
             next_latent = conv_encoder(input_encoder[:,0,...])
         else:
             with tc.no_grad():
@@ -214,7 +217,7 @@ def advance_from_ic(conv_encoder, f, conv_decoder, input_encoder, true_latent, d
         step = 0
 
         for count in range(size[1]-1):
-            if count < start_backprop[1]:
+            if count <= (size[1]-1-start_backprop[1]):
                 with tc.no_grad():
                     next_latent = processor_First_Order(f, next_latent, dt[:,count,:], param[:,count,:], k, RK, ma_mi, device, time_dependence_in_f)
                     l2_AR += L2_relative_loss_general(next_latent, true_latent[:,count+1,:], dim_input[1], True) 
