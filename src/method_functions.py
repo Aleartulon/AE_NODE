@@ -1,6 +1,6 @@
 from src.data_functions import *
 
-def auto_encoding_loss(input_encoder, conv_encoder, conv_decoder, loss_coeff, dim_input, ma_mi, train):
+def auto_encoding_loss(input_encoder, conv_encoder, conv_decoder, loss_coeff, dim_input, ma_mi, train, lambda_regularization):
     latent_space = conv_encoder(input_encoder)
     
     if train:
@@ -13,9 +13,12 @@ def auto_encoding_loss(input_encoder, conv_encoder, conv_decoder, loss_coeff, di
         back_to_physical = inverse_normalization_field(back_to_physical, ma_mi[0], ma_mi[1], dim_input[1])
         second = L2_relative_loss_general(back_to_physical, inverse_normalization_field(input_encoder, ma_mi[0], ma_mi[1], dim_input[1]) , dim_input[1], False) * loss_coeff[0]
         l1 = [first, second]
-    return latent_space, l1
 
-def latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, grids, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, lambda_regularization, dim_input, start_backprop):
+    regularization_latent = l1_latent_regularization(latent_space, lambda_regularization)
+
+    return latent_space, l1, regularization_latent
+
+def latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, grids, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, dim_input, start_backprop):
     latent_dim = latent_space.size()[-1]
     latent_space = latent_space.reshape(size[0], size[1], latent_dim)
     input_processor = latent_space[:, 0:-1, :].reshape(size[0]*(size[1]-1),latent_dim)
@@ -50,8 +53,8 @@ def latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, grids, laten
 
         l2_AR, l_final = advance_from_ic(conv_encoder, f, conv_decoder, input_encoder ,latent_space, tc.reshape(dt,(size[0],size[1]-1)).unsqueeze(-1), param.reshape(size[0] , (size[1]-1) , param.size(-1)), k, RK, ma_mi, device, start_backprop, size, loss_coeff[2], dim_input,train, time_dependence_in_f)
      
-    regularization_latent = l1_latent_regularization(latent_space, lambda_regularization)
-    return l2_TF, l2_AR, l3, l_final, regularization_latent
+    
+    return l2_TF, l2_AR, l3, l_final
 
 def loss_sup_mixed(conv_encoder, f, conv_decoder, field, dt, param, ma_mi, device, loss_coeff, RK, k, start_backprop, dim_input, lambda_regularization,train, time_dependence_in_f, is_coupled):
 
@@ -101,10 +104,10 @@ def loss_sup_mixed(conv_encoder, f, conv_decoder, field, dt, param, ma_mi, devic
 
     #First loss: invertibility of autoencoder enc-dec-enc
     if is_coupled[0] == True or (is_coupled[0] == False and is_coupled[1] == 'AE'):
-        latent_space, l1 = auto_encoding_loss(input_encoder, conv_encoder, conv_decoder, loss_coeff, dim_input, ma_mi, train)
+        latent_space, l1, regularization_latent = auto_encoding_loss(input_encoder, conv_encoder, conv_decoder, loss_coeff, dim_input, ma_mi, train, lambda_regularization)
     elif (is_coupled[0] == False and is_coupled[1] == 'NODE'):
         with tc.no_grad():
-            latent_space, l1 = auto_encoding_loss(input_encoder, conv_encoder, conv_decoder, loss_coeff, dim_input, ma_mi, train)
+            latent_space, l1, regularization_latent = auto_encoding_loss(input_encoder, conv_encoder, conv_decoder, loss_coeff, dim_input, ma_mi, train, lambda_regularization)
 
     #Second loss: dynamics of latent space for TF
     #Third loss: dynamics of latent space for AR
@@ -112,10 +115,10 @@ def loss_sup_mixed(conv_encoder, f, conv_decoder, field, dt, param, ma_mi, devic
     # fifth loss: regulatization of latent space
 
     if is_coupled[0] == True or (is_coupled[0] == False and is_coupled[1] == 'NODE'):
-        l2_TF, l2_AR, l3, l_final, regularization_latent = latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, grids, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, lambda_regularization, dim_input, start_backprop)
+        l2_TF, l2_AR, l3, l_final = latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, grids, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, dim_input, start_backprop)
     elif (is_coupled[0] == False and is_coupled[1] == 'AE'):
         with tc.no_grad():
-            l2_TF, l2_AR, l3, l_final, regularization_latent = latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, grids, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, lambda_regularization, dim_input, start_backprop)
+            l2_TF, l2_AR, l3, l_final = latent_dynamics_loss(conv_encoder, conv_decoder, input_encoder, grids, latent_space, size, f, param, k, RK, ma_mi, device, time_dependence_in_f, train, dt, loss_coeff, dim_input, start_backprop)
 
     return l1, l2_TF, l2_AR, l3, l_final, regularization_latent
 
@@ -128,7 +131,10 @@ def l1_latent_regularization(x, lambda_l1):
     Returns:
         torch.tensor: scalar tensor, it is the regularization loss
     """    
-    l1_norm = tc.mean(tc.abs(x))
+    if lambda_l1 != 0:
+        l1_norm = tc.mean(tc.abs(x))
+    else:
+        return tc.tensor(0, device = x.device)
 
     return lambda_l1 * l1_norm
 
@@ -199,7 +205,7 @@ def advance_from_ic(conv_encoder, f, conv_decoder, input_encoder, true_latent, d
         l_final = tc.tensor(0., device = device)
         l2_AR = tc.tensor(0., device = device)
 
-        if start_backprop[1] == 0:
+        if (size[1]-1-start_backprop[1]) == 0:
             next_latent = conv_encoder(input_encoder[:,0,...])
         else:
             with tc.no_grad():
@@ -211,7 +217,7 @@ def advance_from_ic(conv_encoder, f, conv_decoder, input_encoder, true_latent, d
         step = 0
 
         for count in range(size[1]-1):
-            if count < start_backprop[1]:
+            if count <= (size[1]-1-start_backprop[1]):
                 with tc.no_grad():
                     next_latent = processor_First_Order(f, next_latent, dt[:,count,:], param[:,count,:], k, RK, ma_mi, device, time_dependence_in_f)
                     l2_AR += L2_relative_loss_general(next_latent, true_latent[:,count+1,:], dim_input[1], True) 

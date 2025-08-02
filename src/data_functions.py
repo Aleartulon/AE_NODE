@@ -273,7 +273,9 @@ class CustomStarDataset_Big_Dataset(Dataset):
         """        
         if self.dim_param > 0:
             params = self.params[idx][:,0:-1]
+            dt = self.params[idx][:,-1] #dt is always the last column
+
         else:
             params = tc.zeros(self.size[1]).unsqueeze(-1)
-        dt = self.params[idx][:,-1] #dt is always the last column
+            dt = self.params[idx].unsqueeze(-1) #dt is always the last column
         return self.fields[idx] ,dt , params

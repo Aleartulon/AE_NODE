@@ -72,6 +72,9 @@ def main():
     ]
         
     elif not initial_information['is_coupled'][0] and initial_information['is_coupled'][1] == 'AE':
+        for param in f.parameters():
+            param.requires_grad = False
+            
         params_to_optimize = [
         {'params': conv_encoder.parameters(), 'weight_decay': model_information['weight_decay']['encoder']},
         {'params': conv_decoder.parameters(), 'weight_decay': model_information['weight_decay']['decoder']}
@@ -108,8 +111,8 @@ def main():
 
     # prepare dataloaders for training and validation
     data_path = initial_information['data_path'] 
-    dataset_training = CustomStarDataset_Big_Dataset(data_path + 'field_step_training.npy',data_path + '/parameter_training.npy', initial_information['dim_parameter'], initial_information['time_dependence_in_f'])
-    dataset_validation = CustomStarDataset_Big_Dataset(data_path + 'field_step_validation.npy',data_path + '/parameter_validation.npy', initial_information['dim_parameter'] ,initial_information['time_dependence_in_f'])
+    dataset_training = CustomStarDataset_Big_Dataset(data_path + '/'+initial_information['name_training_field'],data_path + '/'+initial_information['name_training_parameter'],initial_information['dim_parameter'], initial_information['time_dependence_in_f'])
+    dataset_validation = CustomStarDataset_Big_Dataset(data_path + '/'+initial_information['name_validation_field'],data_path + '/'+initial_information['name_validation_parameter'], initial_information['dim_parameter'] ,initial_information['time_dependence_in_f'])
 
     training = DataLoader(dataset_training,batch_size=initial_information['batch_size'], num_workers=8, shuffle=True,drop_last=True,pin_memory=True)
     validation = DataLoader(dataset_validation,batch_size=initial_information['batch_size'], num_workers=8, shuffle=True,drop_last=True,pin_memory=True)
@@ -139,7 +142,7 @@ def main():
     nn_training(conv_encoder ,f, conv_decoder,training, validation, ma_mi, device, optim, initial_information['epochs'], 
         initial_information['PATH'], initial_information['loss_coeff_TF_AR_together'], initial_information['AR_strength'], initial_information['time_only_TF'], pre_scheduler,scheduler, RK, initial_information['k'], initial_information['start_backprop'], 
         initial_information['checkpoint'], initial_information['time_of_AE'], initial_information['dim_input'], 
-        initial_information['lambda_regularization'], initial_information['time_dependence_in_f'], 
+        model_information['lambda_regularization'], initial_information['time_dependence_in_f'], 
         initial_information['TBPP_dynamic'],initial_information['clipping'], initial_information['is_coupled'])
     
 if __name__ == '__main__':
