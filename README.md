@@ -1,6 +1,6 @@
 [![Alt text](./images/inference.svg)](https://github.com/Aleartulon/AENODE/tree/structure/images/inference.svg)
 
-# A Deep Learning approach for parametrized and time dependent Partial Differential Equations using Dimensionality Reduction and Neural ODEs
+# Latent space modeling of parametric and time-dependent PDEs using neural ODEs
 This repository contains the implementation of a Deep Learning methodology for solving **parametrized**,**time-dependent** and (typically) **nonlinear** Partial Differential Equations (PDEs) exploiting *dimensionality reduction* and *Neural ODEs*. The main idea of this method is that it is possible to map the high-fidelity (i.e., high-dimensional) PDE solution space into a reduced (low-dimensional) space, which subsequently exhibits dynamics governed by a (latent) Ordinary Differential Equation (ODE). 3 mathemcatical objects are approximated by Neural Networks(NNs):
 1. An Encoder $\varphi_\theta$ which maps the (high-dimensional) solution field of the PDE into a (low-dimensional) reduced vector;
 2. A Processor $\pi_\theta$ which advances in time, in the low-dimensional space, using known Runge-Kutta schemes the reduced vectors;
@@ -8,7 +8,7 @@ This repository contains the implementation of a Deep Learning methodology for s
    
 At testing time, the initial condition $s_r^0$ is mapped through the Encoder into its reduced representation $\varepsilon_{\pmb{\mu}}^0$. Subsequently, the full sequence of reduced vectors $\varepsilon^{\pmb{\mu},i}_i$ is recovered autoregressively by repeated application of the Processor. For each $\varepsilon^{\pmb{\mu},i}_i$, the corresponding PDE solution is recovered by application of the Decoder.
 
-For a more detailed explanation of the methodology, please refer to this [paper](https://www.arxiv.org/abs/2502.08683).
+For a more detailed explanation of the methodology, please refer to this [paper](https://doi.org/10.1016/j.cma.2025.118394).
 
 ##  Installation
 
