@@ -1,59 +1,136 @@
-[![Alt text](./images/inference.svg)](https://github.com/Aleartulon/AENODE/tree/structure/images/inference.svg)
+![Inference pipeline: encoder, latent Runge–Kutta processor and decoder](images/inference.svg)
 
 # Latent space modeling of parametric and time-dependent PDEs using neural ODEs
-This repository contains the implementation of a Deep Learning methodology for solving **parametrized**,**time-dependent** and (typically) **nonlinear** Partial Differential Equations (PDEs) exploiting *dimensionality reduction* and *Neural ODEs*. The main idea of this method is that it is possible to map the high-fidelity (i.e., high-dimensional) PDE solution space into a reduced (low-dimensional) space, which subsequently exhibits dynamics governed by a (latent) Ordinary Differential Equation (ODE). 3 mathemcatical objects are approximated by Neural Networks(NNs):
-1. An Encoder $\varphi_\theta$ which maps the (high-dimensional) solution field of the PDE into a (low-dimensional) reduced vector;
-2. A Processor $\pi_\theta$ which advances in time, in the low-dimensional space, using known Runge-Kutta schemes the reduced vectors;
-3. A Decoder $\psi_\theta$ which maps the (low-dimensional) reduced vector into the corresponding (high-dimensional) solution field of the PDE.
-   
-At testing time, the initial condition $s_r^0$ is mapped through the Encoder into its reduced representation $\varepsilon_{\pmb{\mu}}^0$. Subsequently, the full sequence of reduced vectors $\varepsilon^{\pmb{\mu},i}_i$ is recovered autoregressively by repeated application of the Processor. For each $\varepsilon^{\pmb{\mu},i}_i$, the corresponding PDE solution is recovered by application of the Decoder.
 
-For a more detailed explanation of the methodology, please refer to this [paper](https://doi.org/10.1016/j.cma.2025.118394).
+This repository contains the official implementation of the paper [*Latent space modeling of parametric and time-dependent PDEs using neural ODEs*](https://doi.org/10.1016/j.cma.2025.118394) (Computer Methods in Applied Mechanics and Engineering, 2026).
 
-##  Installation
+The method builds surrogate models for **parametrized**, **time-dependent** and (typically) **nonlinear** Partial Differential Equations (PDEs) by combining *dimensionality reduction* with *Neural ODEs*. The high-fidelity (high-dimensional) PDE solution is mapped to a low-dimensional latent space whose dynamics are governed by a latent Ordinary Differential Equation (ODE). Three components are approximated by neural networks:
+
+1. an **Encoder** $\varphi_\theta$, which maps the high-dimensional PDE solution field to a low-dimensional latent vector;
+2. a **Processor** $\pi_\theta$, which advances the latent vector in time by integrating the latent ODE with an explicit Runge–Kutta scheme;
+3. a **Decoder** $\psi_\theta$, which maps a latent vector back to the corresponding high-dimensional PDE solution field.
+
+At inference time, the initial condition $s_r^0$ is encoded into its latent representation $\varepsilon_{\pmb{\mu}}^0$. The latent trajectory $\varepsilon_{\pmb{\mu}}^1, \varepsilon_{\pmb{\mu}}^2, \ldots$ is then computed autoregressively by repeated application of the Processor, and each latent vector is decoded to recover the corresponding PDE solution.
+
+## Installation
 
 ```bash
-# Clone the repository
 git clone git@github.com:Aleartulon/AE_NODE.git
+cd AE_NODE
 
-# Navigate into the project directory
-cd AENODE
-
-# Install dependencies
 conda env create -f environment.yml
 conda activate artu
+```
 
-# Run the main
+> [!NOTE]
+> Depending on your platform, conda may resolve a CPU-only build of PyTorch. Training falls back to the CPU silently if CUDA is unavailable, so check with `python -c "import torch; print(torch.cuda.is_available())"` and, if needed, install a CUDA-enabled build following the [PyTorch instructions](https://pytorch.org/get-started/locally/).
+
+## Data format
+
+Training and validation data are read from four NumPy files in the directory given by `data_path` in `configs/initial_information.yaml`. The file names are set by `name_training_field`, `name_validation_field`, `name_training_parameter` and `name_validation_parameter` (by default `field_training.npy`, `field_validation.npy`, `parameter_training.npy`, `parameter_validation.npy`).
+
+| File | Shape |
+| --- | --- |
+| training field | $[N_{tr}, T, C, X_1, \ldots, X_d]$ |
+| validation field | $[N_{val}, T, C, X_1, \ldots, X_d]$ |
+| training parameters | $[N_{tr}, T, N_\mu + 1]$ &nbsp; (or $[N_{tr}, T]$ if $N_\mu = 0$) |
+| validation parameters | $[N_{val}, T, N_\mu + 1]$ &nbsp; (or $[N_{val}, T]$ if $N_\mu = 0$) |
+
+where
+
+- $N_{tr}$ and $N_{val}$ are the numbers of training and validation trajectories;
+- $T$ is the number of time steps in each trajectory;
+- $C$ is the number of channels of the solution field (1 for a scalar field);
+- $X_1, \ldots, X_d$ are the grid sizes of the $d \in \{1, 2\}$ spatial dimensions. All spatial dimensions must have the same size, `side_size`, and it must be divisible by $2^n$, where $n$ is the number of stride-2 layers in the Encoder;
+- $N_\mu$ is the number of PDE parameters (`dim_parameter`).
+
+For every trajectory and time step, the parameter file stores the $N_\mu$ PDE parameters followed by the time step $\Delta t$ used to advance the solution from step $i$ to step $i+1$. The time step is always the last entry. If the PDE has no parameters, the file contains only $\Delta t$.
+
+## Usage
+
+Training is configured by two YAML files and must be launched from the repository root:
+
+- [configs/initial_information.yaml](configs/initial_information.yaml): data, training and optimization settings;
+- [configs/model_information.yaml](configs/model_information.yaml): network architecture.
+
+Every entry is documented by an inline comment. At minimum, set `data_path`, `dim_input`, `side_size`, `dim_parameter` and `which_device` for your problem, then run
+
+```bash
 python bin/main.py
 ```
 
-##  Examples
-In the directory [example_datasets](example_datasets/) there are a series of configs that can be used as examples. For instance by copying in [configs](configs/) the files [example_datasets/burgers_0.001/model_information.yaml](example_datasets/burgers_0.001/model_information.yaml) and  [example_datasets/burgers_0.001/initial_information.yaml](example_datasets/burgers_0.001/initial_information.yaml) one can train on the Burgers' case with $\nu=0.001$. 
+### Training modes
 
-To do so, **one needs to specify** in 'data_path' in [configs/initial_information.yaml](configs/initial_information.yaml) the path to the files 'field_step_training.npy', 'field_step_validation.npy', 'parameter_training.npy', 'parameter_validation.npy' which contain the training and validation data. More specifically, 'field_step_training.npy' must have dimensions $[N_{tr}, T, C, DX_1, DX_2, \ldots]$, 'field_step_validation.npy' must have dimensions $[N_{val}, T, C , DX1, DX2, ...]$, 'parameter_training.npy' must have dimensions $[N_{tr}, N_\mu+1]$ and 'parameter_training.npy' must have dimensions $[N_{val}, N_\mu+1]$, where $N_{tr}$ is the length of the training dataset,  $N_{val}$ is the length of the validation dataset, $T$ is the length of the time domain, $C$ is the number of channels of the solution field, $DX_1$ is the dimension of the first spatial dimension, $DX_2$ is the dimension of the second spatial dimension and so on, $N_\mu$ is the dimension of the parameter vector. In the parameter files, the second dimension is $N_\mu+1$ because in the last dimension the corresponding dt of the full time series is given (the dt is assumed constant across the full time series).
+The `is_coupled` entry selects which components are trained:
 
+| `is_coupled` | Behaviour |
+| --- | --- |
+| `[true, ...]` | Encoder, Processor and Decoder are trained jointly (second entry ignored). |
+| `[false, 'AE']` | Only the autoencoder is trained. |
+| `[false, 'NODE']` | The autoencoder is loaded from `path_trained_AE` and frozen; only the latent dynamics are trained. |
 
-##  Project Structure
+When `is_coupled[0]` is `false`, the loss weights `loss_coeff_not_coupled` are used instead of `loss_coeff_TF_AR_together`.
+
+### Outputs
+
+Each run writes its results to `<physics_model>/Models/<description>/`:
+
 ```plaintext
-├── README.md
-├── bin
-│   └── main.py
-├── configs
-│   ├── initial_information.yaml
-│   └── model_information.yaml
-├── environment.yml
-├── images
-│   ├── inference.pdf
-│   ├── inference.png
-│   └── inference.svg
-├── src
-    ├── __init__.py
-    ├── architecture.py
-    ├── data_functions.py
-    ├── method_functions.py
-    └── training_validation_functions.py
+<physics_model>/Models/<description>/
+├── checkpoint/check.pt   # weights of the best validation epoch (used to resume with `checkpoint: true`)
+├── losses/               # per-epoch training and validation losses (.npy)
+├── Normalization.csv     # minima/maxima used to normalize fields and parameters
+└── scripts/              # copy of the code and configs used for the run
 ```
 
-## Contacts
-For any information, you can contact Alessandro Longhi at a.longhi@tudelft.nl .
+Re-running with the same `physics_model` and `description` overwrites the previous results.
 
+### Inference
+
+[src/test/testing_pipeline.ipynb](src/test/testing_pipeline.ipynb) loads a trained model and rolls it out from given initial conditions and PDE parameters. Set the path to the trained model and to the test data in the notebook before running it.
+
+## Example: Burgers' equation
+
+[examples_datasets/burgers_0.001/](examples_datasets/burgers_0.001/) contains the configuration used for the Burgers' equation with $\nu = 0.001$. To reproduce it, copy both files into [configs/](configs/), set `data_path` to the directory containing your data (see [Data format](#data-format)), and start training:
+
+```bash
+cp examples_datasets/burgers_0.001/*.yaml configs/
+python bin/main.py
+```
+
+## Repository structure
+
+```plaintext
+├── bin/main.py           # training entry point
+├── configs/              # active configuration read by bin/main.py
+├── examples_datasets/    # example configurations
+├── images/               # figures
+└── src/
+    ├── architecture.py                  # Encoder, Decoder and latent dynamics networks
+    ├── data_functions.py                # dataset loading and normalization
+    ├── method_functions.py              # Runge–Kutta processor and loss functions
+    ├── training_validation_functions.py # training and validation loops
+    └── test/testing_pipeline.ipynb      # inference notebook
+```
+
+## Citation
+
+If you use this code in your research, please cite:
+
+```bibtex
+@article{longhi2026latent,
+  title   = {Latent space modeling of parametric and time-dependent {PDEs} using neural {ODEs}},
+  author  = {Longhi, Alessandro and Lathouwers, Danny and Perk{\'o}, Zolt{\'a}n},
+  journal = {Computer Methods in Applied Mechanics and Engineering},
+  volume  = {448},
+  pages   = {118394},
+  year    = {2026},
+  doi     = {10.1016/j.cma.2025.118394}
+}
+```
+
+A preprint is available on [arXiv:2502.08683](https://arxiv.org/abs/2502.08683).
+
+## Contact
+
+For questions, please contact Alessandro Longhi at [a.longhi@tudelft.nl](mailto:a.longhi@tudelft.nl).
